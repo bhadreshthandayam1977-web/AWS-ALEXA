@@ -175,10 +175,10 @@ export function createApp(options: AppOptions = {}): Express {
   return app;
 }
 
-export function startServer(port = config.PORT) {
+export function startServer(port = config.PORT, host = '0.0.0.0') {
   const app = createApp();
-  const server = app.listen(port, () => {
-    console.log(`Alexa TaskFlow MCP server on http://localhost:${port}/mcp`);
+  const server = app.listen(port, host, () => {
+    console.log(`Alexa TaskFlow MCP server on http://${host}:${port}/mcp`);
   });
 
   const shutdown = () => {
