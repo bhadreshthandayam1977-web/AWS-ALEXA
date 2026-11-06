@@ -465,6 +465,8 @@
         <span class="prompt-chip" data-prompt="Start my morning setup">Start morning setup</span>
         <span class="prompt-chip" data-prompt="Complete task 1">Complete task 1</span>
         <span class="prompt-chip" data-prompt="End of day">End of day</span>
+        <span class="prompt-chip" data-prompt="Open YouTube">Open YouTube</span>
+        <span class="prompt-chip" data-prompt="Open GitHub">Open GitHub</span>
       </div>
     </section>
 
@@ -677,10 +679,14 @@
       }
     }
 
-    function addTranscript(sender, text) {
+    function addTranscript(sender, text, html) {
       const div = document.createElement('div');
       div.className = `transcript-item transcript-${sender}`;
-      div.textContent = text;
+      if (html) {
+        div.innerHTML = html;
+      } else {
+        div.textContent = text;
+      }
       transcriptContent.appendChild(div);
       transcriptContent.scrollTop = transcriptContent.scrollHeight;
     }
@@ -703,6 +709,61 @@
     // Simple Spoken Intent Router
     function routeIntent(phrase) {
       const p = phrase.toLowerCase().trim();
+
+      // Open Web Apps (YouTube, GitHub, Google, or direct URLs)
+      if (p.includes('open youtube') || p.includes('launch youtube') || p === 'youtube') {
+        return {
+          type: 'client_action',
+          action: 'open_url',
+          url: 'https://www.youtube.com',
+          name: 'YouTube',
+          spoken: 'Opening YouTube in a new tab.',
+        };
+      }
+
+      if (p.includes('open github') || p.includes('launch github') || p === 'github') {
+        return {
+          type: 'client_action',
+          action: 'open_url',
+          url: 'https://github.com',
+          name: 'GitHub',
+          spoken: 'Opening GitHub in a new tab.',
+        };
+      }
+
+      if (p.includes('open google') || p.includes('launch google') || p === 'google') {
+        return {
+          type: 'client_action',
+          action: 'open_url',
+          url: 'https://www.google.com',
+          name: 'Google',
+          spoken: 'Opening Google in a new tab.',
+        };
+      }
+
+      const openUrlMatch = phrase.match(/open\s+(https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9-]+\.[a-z]{2,})/i);
+      if (openUrlMatch) {
+        let target = openUrlMatch[1];
+        if (!target.startsWith('http://') && !target.startsWith('https://')) {
+          target = 'https://' + target;
+        }
+        return {
+          type: 'client_action',
+          action: 'open_url',
+          url: target,
+          name: openUrlMatch[1],
+          spoken: `Opening ${openUrlMatch[1]} in a new tab.`,
+        };
+      }
+
+      // Help commands
+      if (p === 'help' || p.includes('what can you do') || p.includes('commands')) {
+        return {
+          type: 'client_action',
+          action: 'help',
+          spoken: 'You can say: "add task [title]", "what are my tasks", "complete task [id]", "summarize repo [owner/repo]", "start morning setup", or "open YouTube".',
+        };
+      }
 
       // Morning Setup
       if (p.includes('morning setup') || p.includes('plan my day') || p.includes('start my day')) {
@@ -875,6 +936,33 @@
     async function handleCommand(phrase) {
       addTranscript('user', phrase);
       const intent = routeIntent(phrase);
+
+      // Handle client-side actions (Opening URLs, Help, etc.)
+      if (intent.type === 'client_action') {
+        if (intent.action === 'open_url') {
+          const html = `<span>${intent.spoken}</span> <a href="${intent.url}" target="_blank" rel="noopener noreferrer" style="color:var(--primary); font-weight:600; text-decoration:underline; margin-left:0.4rem;">Open ${intent.name} &nearr;</a>`;
+          addTranscript('alexa', intent.spoken, html);
+          speakAloud(intent.spoken);
+          // Try opening immediately
+          try {
+            const win = window.open(intent.url, '_blank');
+            if (!win) {
+              // Popup blocker intercepted
+              console.warn('Popup blocked, link shown in transcript.');
+            }
+          } catch (e) {
+            console.error('Window open error:', e);
+          }
+          return;
+        }
+
+        if (intent.action === 'help') {
+          addTranscript('alexa', intent.spoken);
+          speakAloud(intent.spoken);
+          return;
+        }
+      }
+
       try {
         const result = await executeMcpTool(intent.tool, intent.args);
         const spoken = result?.content?.[0]?.text || result?.message || 'Command executed.';
