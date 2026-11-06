@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation stack for Alexa TaskFlow: DynamoDB Tasks Table and App Runner IAM Role'
+
+Parameters:
+  TableName:
+    Type: String
+    Default: 'alexa-taskflow-tasks'
+    Description: 'Name of the DynamoDB table for TaskFlow'
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: 'Deployment environment name'
+
+Resources:
+  # DynamoDB Table for TaskFlow Tasks
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Project
+          Value: alexa-taskflow
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # IAM Instance Role for AWS App Runner or ECS Fargate
+  TaskflowInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'alexa-taskflow-instance-role-${EnvironmentName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - build.apprunner.amazonaws.com
+                - tasks.apprunner.amazonaws.com
+                - ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDBAccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                  - dynamodb:DescribeTable
+                Resource: !GetAtt TasksTable.Arn
+        - PolicyName: SecretsManagerReadPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:alexa-taskflow/*'
+
+Outputs:
+  DynamoDBTableName:
+    Description: 'DynamoDB Tasks Table Name'
+    Value: !Ref TasksTable
+    Export:
+      Name: !Sub '${AWS::StackName}-DynamoDBTable'
+
+  DynamoDBTableArn:
+    Description: 'DynamoDB Tasks Table ARN'
+    Value: !GetAtt TasksTable.Arn
+
+  InstanceRoleArn:
+    Description: 'App Runner / ECS IAM Instance Role ARN'
+    Value: !GetAtt TaskflowInstanceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceRoleArn'
