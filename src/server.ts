@@ -41,6 +41,14 @@ export function createApp(options: AppOptions = {}): Express {
 
   const app = express();
 
+  // Normalize /api prefix if routed through Vercel serverless function
+  app.use((req: Request, _res: Response, next) => {
+    if (req.url.startsWith('/api/') || req.url === '/api') {
+      req.url = req.url.replace(/^\/api/, '') || '/';
+    }
+    next();
+  });
+
   // 100kb body limit
   app.use(express.json({ limit: '100kb' }));
 
@@ -52,6 +60,11 @@ export function createApp(options: AppOptions = {}): Express {
 
   // Authentication Middleware (protects POST /mcp if API_TOKEN is set)
   app.use(createAuthMiddleware(cfg.API_TOKEN));
+
+  // GET / - Root redirects to /demo
+  app.get('/', (_req: Request, res: Response) => {
+    res.redirect('/demo');
+  });
 
   // GET /healthz - Public health and capability check
   app.get('/healthz', (_req: Request, res: Response) => {
@@ -70,13 +83,17 @@ export function createApp(options: AppOptions = {}): Express {
     const candidatePaths = [
       path.join(__dirname, 'demo', 'index.html'),
       path.join(__dirname, '..', 'src', 'demo', 'index.html'),
+      path.join(__dirname, '..', 'dist', 'demo', 'index.html'),
+      path.join(process.cwd(), 'src', 'demo', 'index.html'),
+      path.join(process.cwd(), 'dist', 'demo', 'index.html'),
       path.join(__dirname, '..', 'demo', 'index.html'),
     ];
 
     const foundPath = candidatePaths.find((p) => fs.existsSync(p));
     if (foundPath) {
+      const html = fs.readFileSync(foundPath, 'utf-8');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.sendFile(foundPath);
+      res.send(html);
     } else {
       res.status(404).send('Demo UI not found');
     }
@@ -194,8 +211,12 @@ export function startServer(port = config.PORT, host = '0.0.0.0') {
   return server;
 }
 
-// Start if executed directly
+// Export default Express app for serverless runtimes (Vercel, AWS Lambda, etc.)
+const defaultApp = createApp();
+export default defaultApp;
+
+// Start if executed directly and not running in Vercel serverless environment
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
-if (isMain) {
+if (isMain && !process.env.VERCEL) {
   startServer();
 }
