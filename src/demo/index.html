@@ -459,14 +459,15 @@
       </div>
 
       <div class="quick-prompts">
-        <span class="prompt-chip" data-prompt="Add task: Write unit tests for auth middleware">Add task: Write unit tests</span>
-        <span class="prompt-chip" data-prompt="What are my tasks?">What are my tasks?</span>
-        <span class="prompt-chip" data-prompt="Summarize modelcontextprotocol/typescript-sdk">Summarize SDK repo</span>
-        <span class="prompt-chip" data-prompt="Start my morning setup">Start morning setup</span>
-        <span class="prompt-chip" data-prompt="Complete task 1">Complete task 1</span>
-        <span class="prompt-chip" data-prompt="End of day">End of day</span>
+        <span class="prompt-chip" data-prompt="Open Gmail">Open Gmail</span>
         <span class="prompt-chip" data-prompt="Open YouTube">Open YouTube</span>
         <span class="prompt-chip" data-prompt="Open GitHub">Open GitHub</span>
+        <span class="prompt-chip" data-prompt="Open ChatGPT">Open ChatGPT</span>
+        <span class="prompt-chip" data-prompt="What are my tasks?">What are my tasks?</span>
+        <span class="prompt-chip" data-prompt="Add task: Write unit tests for auth middleware">Add task: Write tests</span>
+        <span class="prompt-chip" data-prompt="Summarize modelcontextprotocol/typescript-sdk">Summarize SDK repo</span>
+        <span class="prompt-chip" data-prompt="Start my morning setup">Start morning setup</span>
+        <span class="prompt-chip" data-prompt="End of day">End of day</span>
       </div>
     </section>
 
@@ -706,66 +707,183 @@
       toolsContent.prepend(card);
     }
 
-    // Simple Spoken Intent Router
+    const KNOWN_WEB_APPS = {
+      gmail: { url: 'https://mail.google.com', name: 'Gmail' },
+      mail: { url: 'https://mail.google.com', name: 'Gmail' },
+      email: { url: 'https://mail.google.com', name: 'Gmail' },
+      youtube: { url: 'https://www.youtube.com', name: 'YouTube' },
+      github: { url: 'https://github.com', name: 'GitHub' },
+      google: { url: 'https://www.google.com', name: 'Google' },
+      chatgpt: { url: 'https://chatgpt.com', name: 'ChatGPT' },
+      'chat gpt': { url: 'https://chatgpt.com', name: 'ChatGPT' },
+      claude: { url: 'https://claude.ai', name: 'Claude' },
+      twitter: { url: 'https://x.com', name: 'X / Twitter' },
+      x: { url: 'https://x.com', name: 'X' },
+      reddit: { url: 'https://www.reddit.com', name: 'Reddit' },
+      linkedin: { url: 'https://www.linkedin.com', name: 'LinkedIn' },
+      spotify: { url: 'https://open.spotify.com', name: 'Spotify' },
+      netflix: { url: 'https://www.netflix.com', name: 'Netflix' },
+      amazon: { url: 'https://www.amazon.com', name: 'Amazon' },
+      stackoverflow: { url: 'https://stackoverflow.com', name: 'Stack Overflow' },
+      'stack overflow': { url: 'https://stackoverflow.com', name: 'Stack Overflow' },
+      calendar: { url: 'https://calendar.google.com', name: 'Google Calendar' },
+      maps: { url: 'https://maps.google.com', name: 'Google Maps' },
+      drive: { url: 'https://drive.google.com', name: 'Google Drive' },
+      docs: { url: 'https://docs.google.com', name: 'Google Docs' },
+      sheets: { url: 'https://sheets.google.com', name: 'Google Sheets' },
+      whatsapp: { url: 'https://web.whatsapp.com', name: 'WhatsApp Web' },
+      discord: { url: 'https://discord.com', name: 'Discord' },
+      slack: { url: 'https://slack.com', name: 'Slack' },
+      notion: { url: 'https://www.notion.so', name: 'Notion' },
+      figma: { url: 'https://www.figma.com', name: 'Figma' },
+      vercel: { url: 'https://vercel.com', name: 'Vercel' },
+      aws: { url: 'https://console.aws.amazon.com', name: 'AWS Console' },
+      facebook: { url: 'https://www.facebook.com', name: 'Facebook' },
+      instagram: { url: 'https://www.instagram.com', name: 'Instagram' },
+      devpost: { url: 'https://devpost.com', name: 'Devpost' },
+      twitch: { url: 'https://www.twitch.tv', name: 'Twitch' },
+      zoom: { url: 'https://zoom.us', name: 'Zoom' },
+      wiki: { url: 'https://www.wikipedia.org', name: 'Wikipedia' },
+      wikipedia: { url: 'https://www.wikipedia.org', name: 'Wikipedia' },
+      npm: { url: 'https://www.npmjs.com', name: 'npm' },
+    };
+
+    // Universal Spoken Intent Router
     function routeIntent(phrase) {
       const p = phrase.toLowerCase().trim();
 
-      // Open Web Apps (YouTube, GitHub, Google, or direct URLs)
-      if (p.includes('open youtube') || p.includes('launch youtube') || p === 'youtube') {
+      // 1. Direct single-word app names (e.g. "gmail", "youtube", "chatgpt")
+      if (KNOWN_WEB_APPS[p]) {
+        const info = KNOWN_WEB_APPS[p];
         return {
           type: 'client_action',
           action: 'open_url',
-          url: 'https://www.youtube.com',
-          name: 'YouTube',
-          spoken: 'Opening YouTube in a new tab.',
+          url: info.url,
+          name: info.name,
+          spoken: `Opening ${info.name} in a new tab.`,
         };
       }
 
-      if (p.includes('open github') || p.includes('launch github') || p === 'github') {
-        return {
-          type: 'client_action',
-          action: 'open_url',
-          url: 'https://github.com',
-          name: 'GitHub',
-          spoken: 'Opening GitHub in a new tab.',
-        };
-      }
+      // 2. Open / Launch / Go to / Navigate to [anything]
+      const openMatch = phrase.match(/^(?:open|launch|go to|goto|navigate to)\s+(.+)$/i);
+      if (openMatch) {
+        const rawTarget = openMatch[1].trim();
+        const cleanKey = rawTarget.toLowerCase()
+          .replace(/^(my|the|app|website|page|site)\s+/i, '')
+          .replace(/\s+(app|website|page|site)$/i, '')
+          .trim();
 
-      if (p.includes('open google') || p.includes('launch google') || p === 'google') {
-        return {
-          type: 'client_action',
-          action: 'open_url',
-          url: 'https://www.google.com',
-          name: 'Google',
-          spoken: 'Opening Google in a new tab.',
-        };
-      }
-
-      const openUrlMatch = phrase.match(/open\s+(https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9-]+\.[a-z]{2,})/i);
-      if (openUrlMatch) {
-        let target = openUrlMatch[1];
-        if (!target.startsWith('http://') && !target.startsWith('https://')) {
-          target = 'https://' + target;
+        // Exact match in KNOWN_WEB_APPS
+        if (KNOWN_WEB_APPS[cleanKey]) {
+          const info = KNOWN_WEB_APPS[cleanKey];
+          return {
+            type: 'client_action',
+            action: 'open_url',
+            url: info.url,
+            name: info.name,
+            spoken: `Opening ${info.name} in a new tab.`,
+          };
         }
+
+        // Substring / keyword match in KNOWN_WEB_APPS (e.g. "my gmail account")
+        for (const [key, info] of Object.entries(KNOWN_WEB_APPS)) {
+          if (cleanKey.includes(key)) {
+            return {
+              type: 'client_action',
+              action: 'open_url',
+              url: info.url,
+              name: info.name,
+              spoken: `Opening ${info.name} in a new tab.`,
+            };
+          }
+        }
+
+        // Full URL starting with http:// or https://
+        if (/^https?:\/\//i.test(rawTarget)) {
+          return {
+            type: 'client_action',
+            action: 'open_url',
+            url: rawTarget,
+            name: rawTarget,
+            spoken: `Opening ${rawTarget} in a new tab.`,
+          };
+        }
+
+        // Domain name (e.g. "cnn.com", "news.ycombinator.com", "docs.python.org")
+        if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?(\/.*)?$/i.test(rawTarget)) {
+          const url = 'https://' + rawTarget;
+          return {
+            type: 'client_action',
+            action: 'open_url',
+            url,
+            name: rawTarget,
+            spoken: `Opening ${rawTarget} in a new tab.`,
+          };
+        }
+
+        // Single word brand / site (e.g. "bbc", "cnn", "nytimes", "leetcode", "twitch")
+        if (/^[a-z0-9-]+$/i.test(rawTarget)) {
+          const url = `https://www.${rawTarget}.com`;
+          return {
+            type: 'client_action',
+            action: 'open_url',
+            url,
+            name: rawTarget.toUpperCase(),
+            spoken: `Opening ${rawTarget} in a new tab.`,
+          };
+        }
+
+        // Multi-word target (e.g. "python async documentation" or "how to make pasta")
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(rawTarget)}`;
         return {
           type: 'client_action',
           action: 'open_url',
-          url: target,
-          name: openUrlMatch[1],
-          spoken: `Opening ${openUrlMatch[1]} in a new tab.`,
+          url: searchUrl,
+          name: `"${rawTarget}"`,
+          spoken: `Searching Google for "${rawTarget}" in a new tab.`,
         };
       }
 
-      // Help commands
+      // 3. Search / Google / Find [query]
+      const searchMatch = phrase.match(/^(?:search|google|search for|look up|find)\s+(.+)$/i);
+      if (searchMatch) {
+        const query = searchMatch[1].trim();
+        return {
+          type: 'client_action',
+          action: 'open_url',
+          url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+          name: `"${query}"`,
+          spoken: `Searching Google for "${query}" in a new tab.`,
+        };
+      }
+
+      // 4. Conversational Greetings & Info
+      if (/^(hi|hello|hey|good morning|good afternoon|good evening)\b/i.test(p)) {
+        return {
+          type: 'client_action',
+          action: 'speak',
+          spoken: 'Hello! I am your Alexa assistant. You can ask me to open any app like Gmail, YouTube, or GitHub, manage developer tasks, or run workflows.',
+        };
+      }
+
+      if (p === 'who are you' || p === 'what are you') {
+        return {
+          type: 'client_action',
+          action: 'speak',
+          spoken: 'I am Alexa TaskFlow, a voice assistant powered by the Model Context Protocol that can open apps, manage developer tasks, and run workflows.',
+        };
+      }
+
+      // 5. Help commands
       if (p === 'help' || p.includes('what can you do') || p.includes('commands')) {
         return {
           type: 'client_action',
-          action: 'help',
-          spoken: 'You can say: "add task [title]", "what are my tasks", "complete task [id]", "summarize repo [owner/repo]", "start morning setup", or "open YouTube".',
+          action: 'speak',
+          spoken: 'You can say: "open Gmail", "open YouTube", "open [any website]", "add task [title]", "what are my tasks", "complete task [id]", "summarize repo [owner/repo]", or "start morning setup".',
         };
       }
 
-      // Morning Setup
+      // 6. Developer Workflows
       if (p.includes('morning setup') || p.includes('plan my day') || p.includes('start my day')) {
         const repoMatch = phrase.match(/([\w.-]+\/[\w.-]+)/);
         return {
@@ -777,7 +895,6 @@
         };
       }
 
-      // End of Day
       if (p.includes('end of day') || p.includes('wrap up') || p.includes('finish my day')) {
         return {
           tool: 'run_workflow',
@@ -785,13 +902,15 @@
         };
       }
 
-      // List tasks
+      // 7. List Tasks
       if (
         p.includes('what are my tasks') ||
         p.includes('list tasks') ||
         p.includes('show tasks') ||
         p.includes('my tasks') ||
-        p.includes('open tasks')
+        p.includes('open tasks') ||
+        p === 'tasks' ||
+        p === 'todos'
       ) {
         const status = p.includes('done') || p.includes('completed') ? 'done' : p.includes('all') ? 'all' : 'open';
         return {
@@ -800,7 +919,7 @@
         };
       }
 
-      // Complete / Finish task
+      // 8. Complete / Finish Task
       if (p.startsWith('finish') || p.startsWith('complete') || p.startsWith('done with') || p.startsWith('mark done')) {
         const idMatch = p.match(/\b\d+\b/);
         if (idMatch) {
@@ -816,7 +935,7 @@
         };
       }
 
-      // Summarize repo
+      // 9. Summarize GitHub Repo
       if (p.includes('summarize') || p.includes('commits in') || p.includes('repo')) {
         const repoMatch = phrase.match(/([\w.-]+\/[\w.-]+)/);
         if (repoMatch) {
@@ -827,19 +946,37 @@
         }
       }
 
-      // Add task
-      if (p.startsWith('add') || p.startsWith('create') || p.startsWith('remind me to')) {
-        const cleaned = phrase.replace(/^(add|create|remind me to)\s*(task)?/i, '').trim();
+      // 10. Explicit Add Task
+      if (
+        p.startsWith('add') ||
+        p.startsWith('create') ||
+        p.startsWith('remind me to') ||
+        p.startsWith('new task') ||
+        p.startsWith('task:') ||
+        p.startsWith('todo:')
+      ) {
+        const cleaned = phrase.replace(/^(add|create|remind me to|new task|task:|todo:)\s*(task)?/i, '').trim();
         return {
           tool: 'create_task',
           args: { title: cleaned },
         };
       }
 
-      // Default: create task with phrase
+      // 11. If it looks like an action/task verb
+      if (/^(fix|review|write|build|test|deploy|implement|update|refactor|clean|check|investigate|call|buy|send)\b/i.test(p)) {
+        return {
+          tool: 'create_task',
+          args: { title: phrase },
+        };
+      }
+
+      // 12. Fallback: Search Google for the phrase so the user gets what they asked for!
       return {
-        tool: 'create_task',
-        args: { title: phrase },
+        type: 'client_action',
+        action: 'open_url',
+        url: `https://www.google.com/search?q=${encodeURIComponent(phrase)}`,
+        name: `"${phrase}"`,
+        spoken: `Searching Google for "${phrase}" in a new tab.`,
       };
     }
 
